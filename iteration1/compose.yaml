@@ -1,0 +1,34 @@
+# name: iteration1
+
+services:
+  master:
+    image: serhii714/de-distributed-dystems:iter1
+    container_name: master
+    environment:
+      - NUMBER_SECONDARIES=2
+    ports:
+      - 8000:80
+    networks:
+      - replicated_log
+    command: ["master.py"]
+
+  secondary1:
+    image: serhii714/de-distributed-dystems:iter1
+    container_name: secondary1
+    ports:
+      - 8001:80
+    networks:
+      - replicated_log
+    command: ["secondary.py"]
+
+  secondary2:
+    image: serhii714/de-distributed-dystems:iter1
+    container_name: secondary2
+    ports:
+      - 8002:80
+    networks:
+      - replicated_log
+    command: ["secondary.py"]
+
+networks:
+  replicated_log:

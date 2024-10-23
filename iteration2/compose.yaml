@@ -1,0 +1,27 @@
+name: second
+
+services:
+  master:
+    container_name: master
+    image: serhii714/ds:iter2
+    ports:
+      - 8000:80
+    networks:
+      - replicated_log
+    cap_add:
+      - NET_ADMIN
+    command: ["master.py"]
+
+  node:
+    scale: 3
+    image: serhii714/ds:iter2
+    ports:
+      - 8001-8100:80
+    networks:
+      - replicated_log
+    cap_add:
+      - NET_ADMIN
+    command: ["secondary.py"]
+
+networks:
+  replicated_log:

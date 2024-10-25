@@ -12,16 +12,16 @@ services:
       - NET_ADMIN
     command: ["master.py"]
 
-  node:
+  slave:
     scale: 3
     image: serhii714/ds:iter2
     ports:
-      - 8001-8100:80
+      - 8001-9000:80
     networks:
       - replicated_log
     cap_add:
       - NET_ADMIN
-    command: ["secondary.py"]
+    command: ["slave.py"]
 
 networks:
   replicated_log:

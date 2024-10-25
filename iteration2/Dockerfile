@@ -9,7 +9,8 @@ ENV PYTHONUNBUFFERED=1
 
 # Install tc and ping 
 RUN apk update
-RUN apk add iproute2-tc iputils-ping
+RUN apk upgrade
+RUN apk --no-cache add iproute2-tc iputils-ping
 
 WORKDIR /app
 

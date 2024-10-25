@@ -1,34 +1,23 @@
 import os
+import sys
 import time
 import requests
 from flask import Flask, request
+from waitress import serve
 from logging.config import dictConfig
 
 # config for loggining
-dictConfig(
-    {
-        "version": 1,
-        "formatters": {
-            "default": {
-                "format": "[%(levelname)s]  %(message)s",
-                # "format": "[%(asctime)s] [%(levelname)s | %(module)s]  %(message)s",
-                "datefmt": "%B %d, %Y %H:%M:%S",
-            },
-        },
-        "handlers": {
-            "console": {
-                "class": "logging.StreamHandler",
-                "formatter": "default",
-            },
-        },
-        "root": {"level": "DEBUG", "handlers": ["console"]},
-     }
-)
-
-app = Flask(__name__)
+dictConfig({
+    "version": 1,
+    "formatters": {"default": {"format": "%(asctime)s.%(msecs)03d  %(message)s", "datefmt": "%H:%M:%S"}},
+    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "default"}},
+    "root": {"level": "INFO", "handlers": ["console"]}
+    })
 
 # for save incoming messages
 messages = list()
+
+app = Flask(__name__)
 
 @app.route('/', methods=['POST', 'GET'])
 def root():
@@ -62,6 +51,8 @@ def root():
 
 if __name__ == '__main__':
     hostname = os.environ["HOSTNAME"]
+
+    
     app.logger.info(f'Send hostname "{hostname}" to the master')
     answer = False
     while not answer:
@@ -73,4 +64,8 @@ if __name__ == '__main__':
             answer = False
             time.sleep(1)
 
-    app.run(host="0.0.0.0", port=80, debug=True)
+    if len(sys.argv) > 1:
+        if sys.argv[1] == '--debug':
+            app.run(host="0.0.0.0", port=80, debug=True)
+
+    serve(app, host="0.0.0.0", port=80)

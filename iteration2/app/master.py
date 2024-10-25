@@ -1,28 +1,16 @@
+import sys
 import requests
 from flask import Flask, request
+from waitress import serve
 from logging.config import dictConfig
 
 # config for loggining
-dictConfig(
-    {
-        "version": 1,
-        "formatters": {
-            "default": {
-                "format": "[%(levelname)s]  %(message)s",
-                # "format": "[%(asctime)s] [%(levelname)s | %(module)s]  %(message)s",
-                "datefmt": "%B %d, %Y %H:%M:%S",
-            },
-        },
-        "handlers": {
-            "console": {
-                "class": "logging.StreamHandler",
-                "formatter": "default",
-            },
-        },
-        "root": {"level": "DEBUG", "handlers": ["console"]},
-     }
-)
-
+dictConfig({
+    "version": 1,
+    "formatters": {"default": {"format": "%(asctime)s.%(msecs)03d  %(message)s", "datefmt": "%H:%M:%S"}},
+    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "default"}},
+    "root": {"level": "INFO", "handlers": ["console"]}
+    })
 
 # for save incoming messages
 messages = list()
@@ -91,4 +79,17 @@ def second():
 
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=80, debug=True)
+
+    # debug_mode = False
+    # if len(sys.argv) > 1:
+    #     if sys.argv[1] == '--debug':
+    #         debug_mode = True
+
+    # app.run(host="0.0.0.0", port=80, debug=debug_mode)
+
+
+    if len(sys.argv) > 1:
+        if sys.argv[1] == '--debug':
+            app.run(host="0.0.0.0", port=80, debug=True)
+
+    serve(app, host="0.0.0.0", port=80)

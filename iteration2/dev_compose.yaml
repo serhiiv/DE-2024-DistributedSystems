@@ -12,9 +12,9 @@ services:
       - NET_ADMIN
     volumes:
       - ./app:/app
-    command: ["master.py"]
+    command: ["master.py", "--debug"]
 
-  node:
+  slave:
     scale: 3
     image: serhii714/ds:iter2
     ports:
@@ -25,7 +25,7 @@ services:
       - NET_ADMIN
     volumes:
       - ./app:/app
-    command: ["secondary.py"]
+    command: ["slave.py", "--debug"]
 
 networks:
   replicated_log:

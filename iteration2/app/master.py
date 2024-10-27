@@ -12,43 +12,43 @@ dictConfig({
     "root": {"level": "INFO", "handlers": ["console"]}
     })
 
-# for save incoming messages
-messages = list()
-secondaries = set()
 
+messages = list()
+slaves = set()
 app = Flask(__name__)
 
+
 @app.route('/', methods=['POST', 'GET'])
-def root():
+def route_root():
     global messages
-    global secondaries
+    global slaves
 
     # return the json of messages from memory
     if request.method == 'GET':
-        app.logger.info(f"Returned json:  {messages}")
+        app.logger.info(f'/ answered [get] {messages}')
         return messages
 
     # add new message
     elif request.method == 'POST':
         # load POST to json
         message = request.json
-        app.logger.info(f'Received json:  {message}')
+        app.logger.info(f'/ received [post] {message}')
 
-        text = message.get("text", None)
+        text = message['text']
         id = len(messages)
 
-        counter=0
-        # send to secondary services
-        for secondary in secondaries:
-            app.logger.info(f'Send to "{secondary}" the json: #{id} "{text}"')
-            answer = requests.post('http://' + str(secondary) + ':80', json={"id": id, "text": text}).json()
-            app.logger.info(f'The "{secondary}" answered json: {answer}')
+        counter = 0
+        # send to slave services
+        for slave in slaves:
+            app.logger.info(f'Send to "{slave}" the json: #{id} "{text}"')
+            answer = requests.post('http://' + str(slave) + ':80', json={"id": id, "text": text}).json()
+            app.logger.info(f'The "{slave}" answered json: {answer}')
             if answer.get("ask", None) == 1:
                 counter += 1
 
         
         # control counter of sends
-        if counter == len(secondaries):
+        if counter == len(slaves):
             messages.append(text)
             app.logger.info(f'Added to memory the message:  #{id}  "{text}"')
             return {"ask": 1, "id": id, "text":text}
@@ -57,39 +57,34 @@ def root():
             return {"ask": 0, "error": f'The message "{text}" did not add to the memory'}
 
 
-@app.route('/secondaries', methods=['POST', 'GET'])
-def second():
-    global secondaries
+@app.route('/hosts', methods=['POST', 'GET'])
+def route_hosts():
+    global slaves
 
-    # return the list of connected secondaries
     if request.method == 'GET':
-        app.logger.info(f'Returned from "/secondary" json:  {secondaries}')
-        return list(secondaries)
+        answer = list(slaves)
+        app.logger.info(f'/hosts answered [get] {answer}')
+        return answer
 
-    # add new seconddary to list
     elif request.method == 'POST':
-        # load POST to json
         message = request.json
-        app.logger.info(f'Received for "/secondary" json:  {message}')
+        app.logger.info(f'/hosts received [post] {message}')
+        
+        slave = message['host']
+        slaves.add(slave)
+        app.logger.info(f'My slaves {list(slaves)}')
 
-        secondary = message.get("hostname", None)
-        secondaries.add(secondary)
-        app.logger.info(f'The secondary "{secondary}" add to the list')
-        return {"ask": 1, "text": f'The secondary "{secondary}" add to the list'}
+        answer = {"ask": 1, "info": f'The host "{slave}" add to the set'}
+        app.logger.info(f'/hosts answered [post] {answer}')
+        return answer
 
 
 if __name__ == '__main__':
 
-    # debug_mode = False
-    # if len(sys.argv) > 1:
-    #     if sys.argv[1] == '--debug':
-    #         debug_mode = True
-
-    # app.run(host="0.0.0.0", port=80, debug=debug_mode)
-
-
+    # debug mode
     if len(sys.argv) > 1:
         if sys.argv[1] == '--debug':
             app.run(host="0.0.0.0", port=80, debug=True)
 
+    # deploy mode
     serve(app, host="0.0.0.0", port=80)

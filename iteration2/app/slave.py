@@ -48,24 +48,26 @@ def root():
         app.logger.info(f'Add message #{id} "{text}"')
         return {"ask": 1, "id": id, "text":text}
 
-
 if __name__ == '__main__':
-    hostname = os.environ["HOSTNAME"]
 
-    
-    app.logger.info(f'Send hostname "{hostname}" to the master')
+    host = {"host": os.environ["HOSTNAME"]}
     answer = False
     while not answer:
         try:
-            answer = requests.post("http://master/secondaries", json={"hostname": hostname}).json()
+            app.logger.info('I`m offline')
+            app.logger.info(f'[post] sent to master/hosts {host}')
+            answer = requests.post("http://master/hosts", json=host).json()
             if answer.get("ask", None) == 1:
-                app.logger.info(f'The master answered json: {answer}')
+                app.logger.info(f'[post] received from master/hosts {answer}')
+                app.logger.info('I`m online')
         except:
             answer = False
             time.sleep(1)
 
+    # debug mode
     if len(sys.argv) > 1:
         if sys.argv[1] == '--debug':
             app.run(host="0.0.0.0", port=80, debug=True)
 
+    # deploy mode
     serve(app, host="0.0.0.0", port=80)

@@ -1,8 +1,8 @@
-name: second
+name: rl
 
 services:
   master:
-    container_name: master
+    container_name: rl-master
     image: serhii714/ds:iter2
     ports:
       - 8000:80
@@ -18,7 +18,9 @@ services:
     scale: 3
     image: serhii714/ds:iter2
     ports:
-      - 8001-8100:80
+      - 80
+    # ports:
+    #   - 8001-9000:80
     networks:
       - replicated_log
     cap_add:

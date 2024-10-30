@@ -4,15 +4,15 @@ services:
   master:
     container_name: rl-master
     image: serhii714/ds:iter1
-    environment:
-      - NUMBER_SECONDARIES=2
     ports:
       - 8000:80
     networks:
       - replicated_log
     cap_add:
       - NET_ADMIN
-    command: ["master.py"]
+    volumes:
+      - ./app:/app
+    command: ["master.py", "--debug"]
 
   slave:
     scale: 2
@@ -23,7 +23,9 @@ services:
       - replicated_log
     cap_add:
       - NET_ADMIN
-    command: ["slave.py"]
+    volumes:
+      - ./app:/app
+    command: ["slave.py", "--debug"]
 
 networks:
   replicated_log:

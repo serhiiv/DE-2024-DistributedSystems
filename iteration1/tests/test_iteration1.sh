@@ -1,57 +1,25 @@
 #!/bin/bash
-# View mesages on servers 
-curl http://127.0.0.1:8000
+# View mesages on servers
+docker ps --format '@{{.Names}}${{.Ports}}' | sort | sed 's/@/echo \"/' | sed 's/\$/: $(curl -s /' | sed 's/->80\/tcp/ | tr -d "\n" \)"/' | bash   
 
-curl http://127.0.0.1:8001
-
-curl http://127.0.0.1:8002
-
-#################################
 # Test add a "message 0" to master
-curl --json '{"text":"message 0"}' --request POST http://127.0.0.1:8000
+time curl -s --json '{"text":"message 0"}' --request POST http://127.0.0.1:8000 | tr -d '\n'
 
-# View mesages on servers 
-curl http://127.0.0.1:8000
+# View mesages on servers
+docker ps --format '@{{.Names}}${{.Ports}}' | sort | sed 's/@/echo \"/' | sed 's/\$/: $(curl -s /' | sed 's/->80\/tcp/ | tr -d "\n" \)"/' | bash   
 
-curl http://127.0.0.1:8001
+# make delay time to 1 seconds for rl-slave-1
+docker exec rl-slave-1 tc qdisc add dev eth0 root netem delay 500ms
+# add a "message 1" to master
+time curl -s --json '{"text":"message 1"}' --request POST http://127.0.0.1:8000 | tr -d '\n'
 
-curl http://127.0.0.1:8002
+# make delay time to 1 seconds for rl-slave-2
+docker exec rl-slave-2 tc qdisc add dev eth0 root netem delay 500ms
+# add a "message 2" to master
+time curl -s --json '{"text":"message 2"}' --request POST http://127.0.0.1:8000 | tr -d '\n'
 
-#################################
-# Try to add a "message 1" to master with sleep time to 10 seconds on secondary1
-curl --json '{"sleep": 10}' --request POST http://127.0.0.1:8001/sleep
-time curl --json '{"text":"message 1"}' --request POST http://127.0.0.1:8000
+docker exec rl-slave-1 tc qdisc del dev eth0 root
+docker exec rl-slave-2 tc qdisc del dev eth0 root
 
-# View mesages on servers 
-curl http://127.0.0.1:8000
-
-curl http://127.0.0.1:8001
-
-curl http://127.0.0.1:8002
-
-
-#################################
-# Try to add a "message 2" to master with sleep time to 10 seconds on secondary1 and secondary2
-curl --json '{"sleep": 10}' --request POST http://127.0.0.1:8002/sleep
-time curl --json '{"text":"message 2"}' --request POST http://127.0.0.1:8000
-
-# View mesages on servers 
-curl http://127.0.0.1:8000
-
-curl http://127.0.0.1:8001
-
-curl http://127.0.0.1:8002
-
-#################################
-# Add a "message 3" to master without sleeping
-curl --json '{"sleep": 0}' --request POST http://127.0.0.1:8001/sleep
-curl --json '{"sleep": 0}' --request POST http://127.0.0.1:8002/sleep
-time curl --json '{"text":"message 3"}' --request POST http://127.0.0.1:8000
-
-# View mesages on servers 
-curl http://127.0.0.1:8000
-
-curl http://127.0.0.1:8001
-
-curl http://127.0.0.1:8002
-
+# View mesages on servers
+docker ps --format '@{{.Names}}${{.Ports}}' | sort | sed 's/@/echo \"/' | sed 's/\$/: $(curl -s /' | sed 's/->80\/tcp/ | tr -d "\n" \)"/' | bash   

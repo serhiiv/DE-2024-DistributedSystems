@@ -27,5 +27,5 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 COPY app/* .
 
 # Run the application.
-ENTRYPOINT ["python3"]
-CMD ["master.py"]
+ENTRYPOINT ["python", "-m"]
+CMD ["uvicorn", "slave:app", "--host=0.0.0.0", "--port=8000", "--log-config=log_conf.yaml"]

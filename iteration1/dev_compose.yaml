@@ -5,27 +5,26 @@ services:
     container_name: rl-master
     image: serhii714/ds:iter1
     ports:
-      - 8000:80
+      - 8000:8000
     networks:
       - replicated_log
     cap_add:
       - NET_ADMIN
     volumes:
       - ./app:/app
-    command: ["master.py", "--debug"]
+    command: ['uvicorn', 'master:app', '--host=0.0.0.0', '--port=8000', '--log-config=log_conf.yaml', '--reload']
 
   slave:
     scale: 2
     image: serhii714/ds:iter1
     ports:
-      - 80
+      - 8000
     networks:
       - replicated_log
     cap_add:
       - NET_ADMIN
     volumes:
       - ./app:/app
-    command: ["slave.py", "--debug"]
-
+    command: ['uvicorn', 'slave:app', '--host=0.0.0.0', '--port=8000', '--log-config=log_conf.yaml', '--reload']
 networks:
   replicated_log:

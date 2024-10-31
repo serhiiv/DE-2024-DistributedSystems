@@ -1,4 +1,4 @@
 #!/bin/bash
 # View mesages on servers 
 
-docker ps --format '@{{.Names}}${{.Ports}}' | sort | sed 's/@/echo \"/' | sed 's/\$/: $(curl -s /' | sed 's/->80\/tcp/ | tr -d "\n" \)"/' | bash   
+docker ps --format '@{{.Names}}${{.Ports}}' | sort | sed 's/@/echo \"/' | sed 's/\$/: $(curl -s /' | sed 's/->8000\/tcp/ | tr -d "\n" \)"/' | bash   

@@ -1,73 +1,52 @@
-import os
-import sys
-import time
-import requests
-from flask import Flask, request
-from waitress import serve
-from logging.config import dictConfig
+import asyncio
+import logging
+from fastapi import FastAPI
+from pydantic import BaseModel
 
-# config for loggining
-dictConfig({
-    "version": 1,
-    "formatters": {"default": {"format": "%(asctime)s.%(msecs)03d  %(message)s", "datefmt": "%H:%M:%S"}},
-    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "default"}},
-    "root": {"level": "INFO", "handlers": ["console"]}
-    })
 
-# for save incoming messages
+class Item(BaseModel):
+    id: int
+    text: str
+
+
+class Sleep(BaseModel):
+    time: int
+
+
+app = FastAPI()
+logger = logging.getLogger(__name__)
+delay = Sleep(time=0)
 messages = list()
 
-app = Flask(__name__)
 
-@app.route('/', methods=['POST', 'GET'])
-def root():
+@app.get("/")
+async def get_messages():
     global messages
+    # select messages until first 'None'
+    out = messages + [None]
+    return out[0: out.index(None)]
 
-    # return the json of messages from memory
-    if request.method == 'GET':
-        out = list()
-        # select messages until first 'None'
-        for m in messages:
-            if m is None:
-                break
-            out.append(m)
-        app.logger.info(f"Returned json:  {out}")
-        return out
 
-    # add new message
-    elif request.method == 'POST':
-        message = request.json
-        app.logger.info(f'Received json:  {message}')
-        
-        id = message.get("id", None)
-        text = message.get("text", None)
-        while id >= len(messages):
-            messages.append(None)
-        messages[id] = text
+@app.post("/")
+async def post_message(item: Item):
+    global messages
+    global delay
+    await asyncio.sleep(delay.time)
+    messages += [None] * (item.id - len(messages) + 1)
+    messages[item.id] = item.text
+    logger.info(f'Add message "{item}"')
+    return {"ask": 1, "item": item}
 
-        app.logger.info(f'Add message #{id} "{text}"')
-        return {"ask": 1, "id": id, "text":text}
 
-if __name__ == '__main__':
+@app.get("/sleep")
+async def get_sleep():
+    global delay
+    return {"ask": 1, "sleep": delay}
 
-    host = {"host": os.environ["HOSTNAME"]}
-    answer = False
-    while not answer:
-        try:
-            app.logger.info('I`m offline')
-            app.logger.info(f'[post] sent to master/hosts {host}')
-            answer = requests.post("http://master/hosts", json=host).json()
-            if answer.get("ask", None) == 1:
-                app.logger.info(f'[post] received from master/hosts {answer}')
-                app.logger.info('I`m online')
-        except:
-            answer = False
-            time.sleep(1)
 
-    # debug mode
-    if len(sys.argv) > 1:
-        if sys.argv[1] == '--debug':
-            app.run(host="0.0.0.0", port=80, debug=True)
-
-    # deploy mode
-    serve(app, host="0.0.0.0", port=80)
+@app.post("/sleep")
+async def post_sleep(sleep: Sleep):
+    global delay
+    delay = sleep
+    logger.info(f'Set sleep {delay}')
+    return {"ask": 1, "sleep": delay}

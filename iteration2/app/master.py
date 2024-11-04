@@ -1,90 +1,50 @@
-import sys
-import requests
-from flask import Flask, request
-from waitress import serve
-from logging.config import dictConfig
-
-# config for loggining
-dictConfig({
-    "version": 1,
-    "formatters": {"default": {"format": "%(asctime)s.%(msecs)03d  %(message)s", "datefmt": "%H:%M:%S"}},
-    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "default"}},
-    "root": {"level": "INFO", "handlers": ["console"]}
-    })
+import asyncio
+import logging
+import itertools
+from fastapi import FastAPI
+from pydantic import BaseModel
+from aiohttp import ClientSession
 
 
+class Item(BaseModel):
+    w: int
+    text: str
+
+
+app = FastAPI()
+logger = logging.getLogger(__name__)
 messages = list()
-slaves = set()
-app = Flask(__name__)
+urls = ['rl-slave-1', 'rl-slave-2']
 
 
-@app.route('/', methods=['POST', 'GET'])
-def route_root():
+# Helper Functions 
+async def replicate(url, data):
+    """replicate data to the specified URL using the aiohttp"""
+    async with ClientSession() as session:
+        logger.info(f'Send to "{url}" data "{data}"')
+        response = await session.post('http://' + url + ':8000', json=data)
+        logger.info(f'Got from "{url}" status {response.status}')
+    return response.status == 200
+
+
+@app.get("/")
+async def get_messages():
     global messages
-    global slaves
-
-    # return the json of messages from memory
-    if request.method == 'GET':
-        app.logger.info(f'/ answered [get] {messages}')
-        return messages
-
-    # add new message
-    elif request.method == 'POST':
-        # load POST to json
-        message = request.json
-        app.logger.info(f'/ received [post] {message}')
-
-        text = message['text']
-        id = len(messages)
-
-        counter = 0
-        # send to slave services
-        for slave in slaves:
-            app.logger.info(f'Send to "{slave}" the json: #{id} "{text}"')
-            answer = requests.post('http://' + str(slave) + ':80', json={"id": id, "text": text}).json()
-            app.logger.info(f'The "{slave}" answered json: {answer}')
-            if answer.get("ask", None) == 1:
-                counter += 1
-
-        
-        # control counter of sends
-        if counter == len(slaves):
-            messages.append(text)
-            app.logger.info(f'Added to memory the message:  #{id}  "{text}"')
-            return {"ask": 1, "id": id, "text":text}
-        else:
-            app.logger.error(f'The message "{text}" did not add to the memory')
-            return {"ask": 0, "error": f'The message "{text}" did not add to the memory'}
+    return messages
 
 
-@app.route('/hosts', methods=['POST', 'GET'])
-def route_hosts():
-    global slaves
+@app.post("/")
+async def post_message(item: Item):
+    global messages
+    data = {"id": len(messages), "text": item.text}
+    messages.append(item.text)
 
-    if request.method == 'GET':
-        answer = list(slaves)
-        app.logger.info(f'/hosts answered [get] {answer}')
-        return answer
+    # after each POST request, the message should be replicated on every Secondary server
+    logger.info(f'replicate to slaves the "{data}"')
+    tasks = [asyncio.create_task(replicate(url, data)) for url in urls]
+    await asyncio.sleep(0)
 
-    elif request.method == 'POST':
-        message = request.json
-        app.logger.info(f'/hosts received [post] {message}')
-        
-        slave = message['host']
-        slaves.add(slave)
-        app.logger.info(f'My slaves {list(slaves)}')
+    for task in itertools.islice(asyncio.as_completed(tasks), item.w-1):
+        await task
 
-        answer = {"ask": 1, "info": f'The host "{slave}" add to the set'}
-        app.logger.info(f'/hosts answered [post] {answer}')
-        return answer
-
-
-if __name__ == '__main__':
-
-    # debug mode
-    if len(sys.argv) > 1:
-        if sys.argv[1] == '--debug':
-            app.run(host="0.0.0.0", port=80, debug=True)
-
-    # deploy mode
-    serve(app, host="0.0.0.0", port=80)
+    return {"ask": 1, "item": item}

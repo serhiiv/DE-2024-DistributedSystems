@@ -1,19 +1,22 @@
-List o commands
+## List o commands
 
-docker build -t serhii714/ds:iter2 .
+Build image
+`docker build -t serhii714/ds:iter2 .`
 
-docker compose -f dev_compose.yaml up -d 
+Deploy mode
+`docker compose -d`
 
-docker compose down
+Developer mode
+`docker compose -f dev_compose.yaml up`
 
-docker exec second-node-2 tc qdisc add dev eth0 root netem delay 300ms
+Stop dockers
+`docker compose down`
 
-docker exec second-node-2 tc qdisc del dev eth0 root
+Set dalay for rl-slave-1
+`docker exec rl-slave-1 tc qdisc add dev eth0 root netem delay 300ms`
 
+Remove dalay for rl-slave-1
+`docker exec rl-slave-1 tc qdisc del dev eth0 root`
 
-docker ps --format '{{.Names} {{.Ports}}}' | sort
-
-curl -s 0.0.0.0:8000/secondaries | tr -d '\n' 
-
-docker ps --format '@{{.Names}}${{.Ports}}' | sort | sed 's/->80\/tcp/\)"/' | sed 's/@/echo \"/' | sed 's/\$/: $(curl /'
-docker ps --format '@{{.Names}}${{.Ports}}' | sort | sed 's/->80\/tcp/\)"/' | sed 's/@/echo \"/' | sed 's/\$/: $(curl -s /' | bash
+Для очистки сокетів, щоб знову видавались порти 8001-8999
+docker container prune --force && docker compose -f dev_compose.yaml up 

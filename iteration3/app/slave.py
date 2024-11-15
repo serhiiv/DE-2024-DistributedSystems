@@ -1,3 +1,4 @@
+import socket
 import asyncio
 import logging
 from fastapi import FastAPI
@@ -10,13 +11,27 @@ class Item(BaseModel):
 
 
 class Sleep(BaseModel):
-    time: int
+    time: float
+
+
+async def heartbeats(beats, hostname):
+    while True:
+        await asyncio.sleep(beats)
+        logger.info(f'My hostname is "{hostname}" = "{messages}"  = "{len(messages)}"')
 
 
 app = FastAPI()
+messages = list()
+
 logger = logging.getLogger(__name__)
 delay = Sleep(time=0)
-messages = list()
+HOSTNAME = socket.gethostname()
+HEARTBEATS = 3
+
+
+@app.on_event('startup')
+async def heartbeats_startup():
+    asyncio.create_task(heartbeats(HEARTBEATS, HOSTNAME))
 
 
 @app.get("/")
@@ -40,8 +55,7 @@ async def post_message(item: Item):
 
 @app.get("/sleep")
 async def get_sleep():
-    global delay
-    return {"ask": 1, "sleep": delay}
+    return {"sleep": delay}
 
 
 @app.post("/sleep")
@@ -49,4 +63,4 @@ async def post_sleep(sleep: Sleep):
     global delay
     delay = sleep
     logger.info(f'Set sleep {delay}')
-    return {"ask": 1, "sleep": delay}
+    return {"sleep": delay}

@@ -3,7 +3,7 @@ name: rl
 services:
   master:
     container_name: rl-master
-    image: serhii714/ds:iter2
+    image: serhii714/ds:iter3
     ports:
       - 8000:8000
     networks:
@@ -28,7 +28,7 @@ services:
 
   slave-1:
     container_name: rl-slave-1
-    image: serhii714/ds:iter2
+    image: serhii714/ds:iter3
     ports:
       - 8001:8000
     networks:
@@ -39,7 +39,7 @@ services:
 
   slave-2:
     container_name: rl-slave-2
-    image: serhii714/ds:iter2
+    image: serhii714/ds:iter3
     ports:
       - 8002:8000
     networks:

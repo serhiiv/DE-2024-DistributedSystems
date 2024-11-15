@@ -7,7 +7,7 @@ from aiohttp import ClientSession
 
 
 class Item(BaseModel):
-    w: int
+    wc: int
     text: str
 
 
@@ -15,6 +15,7 @@ app = FastAPI()
 logger = logging.getLogger(__name__)
 messages = list()
 urls = ['rl-slave-1', 'rl-slave-2']
+HEARTBEATS = 3
 
 
 # Helper Functions 
@@ -29,7 +30,6 @@ async def replicate(url, data):
 
 @app.get("/")
 async def get_messages():
-    global messages
     return messages
 
 
@@ -44,7 +44,12 @@ async def post_message(item: Item):
     tasks = [asyncio.create_task(replicate(url, data)) for url in urls]
     await asyncio.sleep(0)
 
-    for task in itertools.islice(asyncio.as_completed(tasks), item.w-1):
+    for task in itertools.islice(asyncio.as_completed(tasks), item.wc-1):
         await task
 
-    return {"ask": 1, "item": item}
+    return {"id": len(messages) - 1, "text": item.text}
+
+
+@app.get("/health")
+async def get_health():
+    return messages

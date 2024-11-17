@@ -4,6 +4,8 @@ services:
   master:
     container_name: rl-master
     image: serhii714/ds:iter3
+    environment:
+      - HEARTBEATS=${HEARTBEATS}
     ports:
       - 8000:8000
     networks:
@@ -17,6 +19,8 @@ services:
   # slave:
   #   scale: 2
   #   image: serhii714/ds:iter3
+    # environment:
+    #   - HEARTBEATS=${HEARTBEATS}
   #   ports:
   #     - 8001-8999:8000
   #   networks:
@@ -31,6 +35,8 @@ services:
   slave-1:
     container_name: rl-slave-1
     image: serhii714/ds:iter3
+    environment:
+      - HEARTBEATS=${HEARTBEATS}
     ports:
       - 8001:8000
     networks:
@@ -43,6 +49,8 @@ services:
 
   slave-2:
     container_name: rl-slave-2
+    environment:
+      - HEARTBEATS=${HEARTBEATS}
     image: serhii714/ds:iter3
     ports:
       - 8002:8000

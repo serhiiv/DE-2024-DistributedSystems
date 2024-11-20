@@ -20,3 +20,9 @@ Remove dalay for rl-slave-1
 
 Для очистки сокетів, щоб знову видавались порти 8001-8999
 `docker container prune --force && docker compose -f dev_compose.yaml up`
+
+Report coverage by tests
+'python -m pytest --cov-report term-missing --cov=app tests/'
+
+Pytest
+`python -m pytest -v --cache-clear`

@@ -1,37 +1,70 @@
 import os
 import time
+import random
 import asyncio
 import logging
 import itertools
 from fastapi import FastAPI
 from pydantic import BaseModel
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientError
+
+
+logger = logging.getLogger(__name__)
 
 
 class Item(BaseModel):
-    wc: int
+    ''' client POST request in addition to the message 
+        should also contain write concern parameter wc=1,2,3,..,n
+        wc value specifies how many ACKs the master should receive 
+        from secondaries before responding to the client
+        
+        wc = 1 - only from master
+        wc = 2 - from master and one secondary
+        wc = 3 - from master and two secondarie
+    '''
+    wc: int 
     text: str
 
+
 class Health(BaseModel):
-    hostname: str
+    ''' inpit item for hertbeat
+    '''
+    ip: str
     delivered: int
 
 
-app = FastAPI()
-logger = logging.getLogger(__name__)
-messages = list()
-slaves = dict()
-
-urls = ['rl-slave-1', 'rl-slave-2']
-
+# time to repeat heartbeats
 HEARTBEATS = float(os.getenv("HEARTBEATS", 3))
 
+app = FastAPI()
 
-def get_host_status(key):
-    ''' implement a heartbeat mechanism to check 
-    slaves’ health (status): Healthy -> Suspected -> Unhealthy. 
+# storage for messages in memory
+messages = list()
+
+''' storage for secodaries in memory
+    
+    example:
+
+    { '172.10.0.3': {               - ip of slave node that made heartbeat
+        'delivered': 2,             - the number of delivered messages that follow each other without gaps
+        'uptime': 1731878659.010422 - time on this node for this record
+        }
+    }
+'''
+slaves = dict()
+
+
+def get_host_delivered(ip):
+    ''' Return the number of delivered messages.
     '''
-    delta = time.time() - slaves[key]['uptime']
+    return slaves[ip]['delivered']
+
+
+def get_host_status(ip):
+    ''' The simple implementation of a heartbeat mechanism to check 
+        slaves' health (status): Healthy -> Suspected -> Unhealthy.         
+    '''
+    delta = time.time() - slaves[ip]['uptime']
     if delta > HEARTBEATS * 1.25:
         return 'Unhealthy'
     elif delta < HEARTBEATS * 0.75:
@@ -39,22 +72,48 @@ def get_host_status(key):
     else:
         return 'Suspected'
 
+
 def not_quorum(quorum):
-    ''' Check quorum for slaves and master ( +1 )
+    ''' Check quorum for slaves and +1 for master
+        return True if NOT quorum
     '''
-    return quorum > (sum([get_host_status(key) != 'Unhealthy' for key in slaves.keys()]) + 1)
-        
+    return quorum > (sum([get_host_status(ip) != 'Unhealthy' for ip in slaves.keys()]) + 1)
 
 
-
-# Helper Functions 
-async def replicate(url, data):
-    """replicate data to the specified URL using the aiohttp"""
+async def replicate(url, data, timeout):
+    ''' replicate data to the specified URL using the aiohttp
+    '''
     async with ClientSession() as session:
-        logger.info(f'Send to "{url}" data "{data}"')
-        response = await session.post('http://' + url + ':8000', json=data)
-        logger.info(f'Got from "{url}" status {response.status}')
-    return response.status == 200
+        logger.info(f'--- Replicate to "{url}" data "{data}"')
+        try:
+            response = await session.post('http://' + url + ':8000', json=data, timeout=timeout)
+            return response.status == 200
+        except ClientError:
+            return False
+        except asyncio.TimeoutError:
+            return False
+
+
+async def retry(url, data):
+    '''
+    '''
+    step = HEARTBEATS / 100
+    response = False
+    attempt = 0
+    while not response:
+        attempt += 1
+        main_part = round(min(300, step * 2**attempt), 4)
+        raddom_part = round(random.random() * main_part * 0.1, 4)
+        if main_part < 300:
+            timeout = main_part + raddom_part
+        else:
+            timeout = main_part - raddom_part
+        logger.info(f'-- Retry to "{url}" attempt #"{attempt} with timeout "{timeout}"')
+        response = await replicate(url, data, timeout)
+        if not response:
+            await asyncio.sleep(timeout)
+            if get_host_delivered(url) >= (data['id'] - 1):
+                response = True
 
 
 @app.get("/")
@@ -73,18 +132,23 @@ async def post_message(item: Item):
         # and shouldn’t accept messages append requests and should return the appropriate message
         return {'ask': 0, 'text': 'does not have a quorum'}
 
-
     global messages
+
+    #  Add logic for message deduplication and guarantee the total ordering of messages by 'id.'
     data = {"id": len(messages), "text": item.text}
     messages.append(item.text)
 
-    # # after each POST request, the message should be replicated on every Secondary server
-    # logger.info(f'replicate to slaves the "{data}"')
-    # tasks = [asyncio.create_task(replicate(url, data)) for url in urls]
+    # after each POST request, the message should be replicated on every Secondary server
+    logger.info(f'- Send to slaves the "{data}"')
+
+    tasks = [asyncio.create_task(retry(url, data)) for url in slaves.keys() if get_host_status(url) != 'Unhealthy']
+
+    # tasks = [asyncio.create_task(retry(url, data)) for url in urls]
     # await asyncio.sleep(0)
 
-    # for task in itertools.islice(asyncio.as_completed(tasks), item.wc-1):
-    #     await task
+    # `item.wc-1` value specifies how many ACKs the master should receive from secondaries before responding to the client
+    for task in itertools.islice(asyncio.as_completed(tasks), item.wc-1):
+        await task
 
     return {'ask': 1, "text": item.text, "id": len(messages) - 1}
 
@@ -93,11 +157,11 @@ async def post_message(item: Item):
 async def get_health():
     ''' You should have an API on the master to check the slaves’ status: GET /health
     '''
-    out = list()
-    for key in sorted(slaves.keys()):
-        out.append({'hostname': key, 'status': get_host_status(key)})
+    report = list()
+    for ip in sorted(slaves.keys()):
+        report.append({'ip': ip, 'status': get_host_status(ip)})
 
-    return out
+    return report
 
 
 @app.post("/health")
@@ -105,12 +169,14 @@ async def post_message(health: Health):
     '''
     '''
     global slaves
-    slaves[health.hostname] = {'delivered': health.delivered, 'uptime': time.time()}
+    slaves[health.ip] = {'delivered': health.delivered, 'uptime': time.time()}
 
     # All messages that secondaries have missed due to unavailability should be replicated after (re)joining the master
     for id in range(health.delivered, len(messages)):
         data = {"id": id, "text": messages[id]}
-        #  sent to health.hostname
+        logger.info(f'- Answer heartbeat to "{health.ip}"')
+        asyncio.create_task(replicate(health.ip, data, HEARTBEATS-0.01))
+        await asyncio.sleep(0)
 
-    return {'ask': 1, 'hostname': health.hostname}
+    return {'ask': 1, 'ip': health.ip}
 

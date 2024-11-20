@@ -33,18 +33,25 @@ def test_health():
     assert response.json() == list()
 
     # add the first host
-    response = client.post("/health", json={"hostname": "slave_1", "delivered": 0})
+    response = client.post("/health", json={"ip": "slave_1", "delivered": 0})
     assert response.status_code == 200
-    assert response.json() == {'ask': 1, 'hostname': 'slave_1'}
+    assert response.json() == {'ask': 1, 'ip': 'slave_1'}
+
+    # get the list of messages
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == [{'ip': 'slave_1', 'status': 'Healthy'}]
+
+def test_status_quorum_function():
 
     assert get_host_status('slave_1') == 'Healthy'
     assert not_quorum(1) == False
     assert not_quorum(2) == False
-    time.sleep(3)
+    time.sleep(HEARTBEATS)
     assert get_host_status('slave_1') == 'Suspected'
     assert not_quorum(1) == False
     assert not_quorum(2) == False
-    time.sleep(3)
+    time.sleep(HEARTBEATS)
     assert get_host_status('slave_1') == 'Unhealthy'
     assert not_quorum(1) == False
     assert not_quorum(2) == True
@@ -52,7 +59,7 @@ def test_health():
     # get the list of messages
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == [{'hostname': 'slave_1', 'status': 'Unhealthy'}]
+    assert response.json() == [{'ip': 'slave_1', 'status': 'Unhealthy'}]
 
     # add message
     response = client.post("/", json={"wc": 2, "text": "message does not have a quorum"})
@@ -60,12 +67,12 @@ def test_health():
     assert response.json() == {'ask': 0, 'text': 'does not have a quorum'}
 
     # add the first host
-    response = client.post("/health", json={"hostname": "slave_1", "delivered": 0})
+    response = client.post("/health", json={"ip": "slave_1", "delivered": 0})
     assert response.status_code == 200
-    assert response.json() == {'ask': 1, 'hostname': 'slave_1'}
+    assert response.json() == {'ask': 1, 'ip': 'slave_1'}
 
     # get the list of messages
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == [{'hostname': 'slave_1', 'status': 'Healthy'}]
+    assert response.json() == [{'ip': 'slave_1', 'status': 'Healthy'}]
 

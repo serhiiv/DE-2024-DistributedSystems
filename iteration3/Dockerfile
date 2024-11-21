@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM python:3.13.0-alpine3.20
+FROM python:3.12.3-alpine
 
 # Prevents Python from writing pyc files.
 ENV PYTHONDONTWRITEBYTECODE=1

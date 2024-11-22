@@ -1,6 +1,8 @@
 import time
+import random
 from fastapi.testclient import TestClient
-from app.master import app, HEARTBEATS, get_host_status, not_quorum
+from app.master import app, HEARTBEATS
+from app.master import get_host_status, not_quorum, get_retry_timeout, get_host_delivered, retry
 
 
 client = TestClient(app)
@@ -9,6 +11,10 @@ client = TestClient(app)
 def test_root():
     # check the HEARTBEATS
     assert HEARTBEATS == 3.0
+
+    random.seed(HEARTBEATS)
+    assert round(get_retry_timeout(0), 4) == 0.0307
+    assert round(get_retry_timeout(20), 4) == 283.6731
 
     # get the initial list of messages
     response = client.get("/")
@@ -36,6 +42,8 @@ def test_health():
     response = client.post("/health", json={"ip": "slave_1", "delivered": 0})
     assert response.status_code == 200
     assert response.json() == {'ask': 1, 'ip': 'slave_1'}
+
+    assert get_host_delivered("slave_1") == 0
 
     # get the list of messages
     response = client.get("/health")
@@ -75,4 +83,3 @@ def test_status_quorum_function():
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == [{'ip': 'slave_1', 'status': 'Healthy'}]
-

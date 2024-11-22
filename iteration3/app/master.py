@@ -28,6 +28,8 @@ class Item(BaseModel):
 
 class Health(BaseModel):
     ''' inpit item for hertbeat
+        ip - ip of slave node that made heartbeat
+        delivered - the number of delivered messages that follow each other without gaps    
     '''
     ip: str
     delivered: int
@@ -80,6 +82,20 @@ def not_quorum(quorum):
     return quorum > (sum([get_host_status(ip) != 'Unhealthy' for ip in slaves.keys()]) + 1)
 
 
+def get_retry_timeout(attempt):
+    ''' return the timeout for the next retry
+    '''
+    # random.seed(HEARTBEATS)
+    step = HEARTBEATS / 100
+    main_part = min(300, step * 2 ** attempt)
+    random_part = random.random() * main_part * 0.1
+    if main_part < 300:
+        return round(main_part + random_part, 4)
+    else:
+        return round(main_part - random_part, 4)
+
+
+
 async def replicate(url, data, timeout):
     ''' replicate data to the specified URL using the aiohttp
     '''
@@ -95,37 +111,34 @@ async def replicate(url, data, timeout):
 
 
 async def retry(url, data):
-    '''
+    ''' Retries can be implemented with an unlimited number of attempts 
+        but, possibly, with some “smart” delays logic
     '''
     step = HEARTBEATS / 100
     response = False
     attempt = 0
     while not response:
-        attempt += 1
-        main_part = round(min(300, step * 2**attempt), 4)
-        raddom_part = round(random.random() * main_part * 0.1, 4)
-        if main_part < 300:
-            timeout = main_part + raddom_part
-        else:
-            timeout = main_part - raddom_part
+        timeout = get_retry_timeout(attempt)
         logger.info(f'-- Retry to "{url}" attempt #"{attempt} with timeout "{timeout}"')
         response = await replicate(url, data, timeout)
         if not response:
             await asyncio.sleep(timeout)
+            # check heartbeat information before the next retry
             if get_host_delivered(url) >= (data['id'] - 1):
                 response = True
+        attempt += 1
 
 
 @app.get("/")
 async def get_messages():
-    '''
+    ''' returns all messages from the in-memory lis
     '''
     return messages
 
 
 @app.post("/")
 async def post_message(item: Item):
-    '''
+    ''' appends a message into the in-memory list
     '''
     if not_quorum(item.wc):
         # If there is no quorum the master should be switched into read-only mode 
@@ -140,11 +153,7 @@ async def post_message(item: Item):
 
     # after each POST request, the message should be replicated on every Secondary server
     logger.info(f'- Send to slaves the "{data}"')
-
     tasks = [asyncio.create_task(retry(url, data)) for url in slaves.keys() if get_host_status(url) != 'Unhealthy']
-
-    # tasks = [asyncio.create_task(retry(url, data)) for url in urls]
-    # await asyncio.sleep(0)
 
     # `item.wc-1` value specifies how many ACKs the master should receive from secondaries before responding to the client
     for task in itertools.islice(asyncio.as_completed(tasks), item.wc-1):
@@ -166,7 +175,7 @@ async def get_health():
 
 @app.post("/health")
 async def post_message(health: Health):
-    '''
+    ''' Record heartbeat and (if needed) replicate missed messages.
     '''
     global slaves
     slaves[health.ip] = {'delivered': health.delivered, 'uptime': time.time()}

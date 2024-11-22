@@ -30,7 +30,7 @@ HEARTBEATS = float(os.getenv("HEARTBEATS", 3))
 
 async def beat(session):
     ''' one heartbeat to the master
-        sent ip and amount received valid messages
+        sent ip and amount received valid messages 
     '''
     # count valid messages
     with_none = messages + [None]

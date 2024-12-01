@@ -1,4 +1,4 @@
-import os 
+import os
 import socket
 import asyncio
 import logging
@@ -30,12 +30,12 @@ HEARTBEATS = float(os.getenv("HEARTBEATS", 3))
 
 async def beat(session):
     ''' one heartbeat to the master
-        sent ip and amount received valid messages 
+        sent ip and amount received valid messages
     '''
     # count valid messages
     with_none = messages + [None]
     delivered = len(with_none[0: with_none.index(None)])
-    
+
     data = {"ip": IP, "delivered": delivered}
     try:
         logger.info(f'= Heartbeats with "{data}"')
@@ -83,16 +83,16 @@ async def post_message(item: Item):
     ''' appends a message into the in-memory list
     '''
     global messages
-    
-    # Fill the list of messages with values ​​'None' up to the end 
+
+    # Fill the list of messages with values ​​'None' up to the end
     # and make the list length of the messages equal to the 'id.'
     messages += [None] * (item.id - len(messages) + 1)
     messages[item.id] = item.text
     logger.info(f'== Add message "{item}"')
-    
+
     # Make a timeout before the response.
     await asyncio.sleep(delay.time)
-    
+
     return {"ask": 1, "item": item}
 
 

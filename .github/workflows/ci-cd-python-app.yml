@@ -8,7 +8,7 @@ on:
     branches: 
       - 'main'
     paths: 
-      - 'iteration3/*'
+      - 'iteration3/**'
 
 permissions:
   contents: read

@@ -39,14 +39,14 @@ def test_sleep():
     # get the initial sleep time
     response = client.get("/sleep")
     assert response.status_code == 200
-    assert response.json() ==  {'sleep': {'time': 0}} 
+    assert response.json() ==  {'sleep': {'time': 0}}
 
     # set sleep time
     response = client.post("/sleep", json={"time": 0.99})
     assert response.status_code == 200
-    assert response.json() ==  {'sleep': {'time': 0.99}} 
+    assert response.json() ==  {'sleep': {'time': 0.99}}
 
     # check sleep time
     response = client.get("/sleep")
     assert response.status_code == 200
-    assert response.json() ==  {'sleep': {'time': 0.99}} 
+    assert response.json() == {'sleep': {'time': 0.99}}

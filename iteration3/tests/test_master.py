@@ -2,7 +2,7 @@ import time
 import random
 from fastapi.testclient import TestClient
 from app.master import app, HEARTBEATS
-from app.master import get_host_status, not_quorum, get_retry_timeout, get_host_delivered, retry
+from app.master import get_host_status, not_quorum, get_retry_timeout, get_host_delivered
 
 
 client = TestClient(app)
@@ -50,19 +50,20 @@ def test_health():
     assert response.status_code == 200
     assert response.json() == [{'ip': 'slave_1', 'status': 'Healthy'}]
 
+
 def test_status_quorum_function():
 
     assert get_host_status('slave_1') == 'Healthy'
-    assert not_quorum(1) == False
-    assert not_quorum(2) == False
+    assert not not_quorum(1)
+    assert not not_quorum(2)
     time.sleep(HEARTBEATS)
     assert get_host_status('slave_1') == 'Suspected'
-    assert not_quorum(1) == False
-    assert not_quorum(2) == False
+    assert not not_quorum(1)
+    assert not not_quorum(2)
     time.sleep(HEARTBEATS)
     assert get_host_status('slave_1') == 'Unhealthy'
-    assert not_quorum(1) == False
-    assert not_quorum(2) == True
+    assert not not_quorum(1)
+    assert not_quorum(2)
 
     # get the list of messages
     response = client.get("/health")

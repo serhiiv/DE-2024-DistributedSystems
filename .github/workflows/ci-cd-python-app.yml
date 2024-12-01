@@ -9,6 +9,7 @@ on:
       - 'main'
     paths: 
       - 'iteration3/**'
+      - '.github/workflows/ci-cd-python-app.yml'
 
 permissions:
   contents: read

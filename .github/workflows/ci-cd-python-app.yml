@@ -6,9 +6,9 @@ name: Replicated log - iteration 3
 on:
   push:
     branches: 
-      - "main"
+      - 'main'
     paths: 
-      - "iteration3/"
+      - '**.py'
 
 permissions:
   contents: read

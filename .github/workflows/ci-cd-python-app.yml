@@ -73,4 +73,4 @@ jobs:
         with:
           context: ./iteration3/
           push: true
-          tags: user/app:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/cicd-gke:latest
